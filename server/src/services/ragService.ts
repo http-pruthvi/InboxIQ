@@ -28,7 +28,6 @@ export class RagService {
                     });
                 }
             });
-            console.log(`RAG Service: Hydrated ${this.memoryVectorStore.length} embeddings.`);
         } catch (e) {
             console.warn('RAG Service: Failed to hydrate cache', e);
         }
@@ -36,13 +35,18 @@ export class RagService {
 
     async generateEmbedding(text: string): Promise<number[] | null> {
         try {
+            console.log(`Generating embedding via ${this.apiUrl} using model ${this.model}`);
             const response = await axios.post(this.apiUrl, {
                 model: this.model,
                 prompt: text
             });
+            if (!response.data.embedding) {
+                console.error('RAG Error: Response missing embedding field', response.data);
+            }
             return response.data.embedding; // Ollama format
-        } catch (error) {
-            console.error('Failed to generate embedding', error);
+        } catch (error: any) {
+            console.error('Failed to generate embedding:', error.message);
+            if (error.response) console.error('Error Data:', error.response.data);
             return null;
         }
     }
@@ -54,13 +58,15 @@ export class RagService {
             const embedding = await this.generateEmbedding(textToEmbed);
             if (embedding) {
                 email.embedding = embedding;
-                // Update DB async
-                await db.collection('emails').doc(email.id).set({ embedding }, { merge: true });
+            } else {
+                return;
             }
         }
 
-        // 2. Add to memory store
+        // 2. Persist to DB and Memory
         if (email.embedding) {
+            await db.collection('emails').doc(email.id).set({ embedding: email.embedding }, { merge: true });
+
             // Remove existing if updating
             this.memoryVectorStore = this.memoryVectorStore.filter(i => i.id !== email.id);
             this.memoryVectorStore.push({
@@ -91,7 +97,6 @@ export class RagService {
         }
 
         if (targetEmail.embedding) {
-            console.log(`RAG Debug: Query embedding len=${targetEmail.embedding.length}`);
             semanticMatches = this.memoryVectorStore
                 .filter(item => item.id !== targetEmail.id)
                 .map(item => {
@@ -122,6 +127,34 @@ export class RagService {
         Date: ${e.date}
         Subject: ${e.subject}
         Body: ${(e.body || '').substring(0, 200).replace(/\s+/g, ' ')}...
+        ---
+        `).join('\n');
+    }
+
+    async getContextForQuery(query: string, limit: number = 3): Promise<string> {
+        const queryEmbedding = await this.generateEmbedding(query);
+        if (!queryEmbedding) return "";
+
+        const semanticMatches = this.memoryVectorStore
+            .map(item => {
+                if (!Array.isArray(item.embedding)) return { email: item.email, score: 0 };
+                return {
+                    email: item.email,
+                    score: this.cosineSimilarity(queryEmbedding, item.embedding)
+                };
+            })
+            .filter(m => m.score > 0.3) // Lower threshold for testing
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit);
+
+        if (semanticMatches.length === 0) return "";
+
+        return semanticMatches.map(m => `
+        ---
+        From: ${m.email.from}
+        Date: ${m.email.date}
+        Subject: ${m.email.subject}
+        Body: ${(m.email.body || '').substring(0, 300).replace(/\s+/g, ' ')}...
         ---
         `).join('\n');
     }

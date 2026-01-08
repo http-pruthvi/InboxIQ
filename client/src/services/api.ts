@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:3000/api', // Hardcoded for MVP, better in env
+    baseURL: '/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -15,7 +15,6 @@ export const emailApi = {
     },
     getAll: async () => {
         const response = await api.get('/emails');
-        // Backend returns { status: 'success', data: [...] }
         return response.data.data;
     },
     send: async (to: string, subject: string, body: string, replyToEmailId?: string) => {
@@ -26,8 +25,45 @@ export const emailApi = {
 
 export const taskApi = {
     getAll: async () => {
-        const response = await api.get('/tasks');
+        try {
+            const response = await api.get('/tasks');
+            // console.log('GET /tasks response:', response.data);
+            return response.data?.data || [];
+        } catch (error) {
+            console.error('API Error fetching tasks:', error);
+            return [];
+        }
+    },
+    update: async (id: string, updates: Partial<{ status: 'PENDING' | 'COMPLETED', dueDate: string | null }>) => {
+        const response = await api.patch(`/tasks/${id}`, updates);
         return response.data;
+    }
+};
+
+export const authApi = {
+    checkContext: async () => {
+        try {
+            const response = await api.get('/user');
+            return response.data; // Returns { isAuthenticated: boolean, user: ... }
+        } catch {
+            return { isAuthenticated: false };
+        }
+    },
+    logout: async () => {
+        await api.get('/auth/logout');
+    }
+};
+export const chatApi = {
+    sendMessage: async (message: string) => {
+        const response = await api.post('/chat', { message });
+        return response.data.data; // { response: string, contextUsed: boolean }
+    }
+};
+
+export const aiApi = {
+    rewrite: async (text: string, tone: 'FORMAL' | 'CASUAL' | 'CONCISE' | 'CHECK_GRAMMAR') => {
+        const response = await api.post('/ai/rewrite', { text, tone });
+        return response.data.data; // { rewritten: string }
     }
 };
 

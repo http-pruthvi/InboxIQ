@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 export class TaskService {
     private collection = db.collection('tasks');
 
-    async createTasksFromAnalysis(emailId: string, taskDescriptions: string[]): Promise<void> {
+    async createTasksFromAnalysis(emailId: string, taskDescriptions: string[], dueDate?: string | null): Promise<void> {
         if (!taskDescriptions || taskDescriptions.length === 0) return;
 
         const batch = db.batch();
@@ -20,14 +20,15 @@ export class TaskService {
                 description: desc,
                 status: 'PENDING',
                 createdAt: new Date().toISOString(),
-                priority: 'MEDIUM' // Default, can be improved later
+                priority: 'MEDIUM', // Default, can be improved later
+                dueDate: dueDate || null
             };
 
             batch.set(taskRef, newTask);
         });
 
         await batch.commit();
-        console.log(`Created ${taskDescriptions.length} tasks for email ${emailId}`);
+        console.log(`Created ${taskDescriptions.length} tasks for email ${emailId} with due date: ${dueDate}`);
     }
 
     async getTasks(): Promise<Task[]> {

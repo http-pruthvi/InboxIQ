@@ -17,8 +17,6 @@ export interface EmailAnalysis {
 export class AiService {
 
     async analyzeEmail(email: Email): Promise<EmailAnalysis> {
-        console.log(`Analyzing email: ${email.id} - ${email.subject}`);
-
         // 1. Retrieve Context
         const context = await ragService.getContext(email);
         const contextPrompt = context ? `
@@ -47,7 +45,7 @@ export class AiService {
         4. **Deadline**: Extract any specific due date/time as ISO 8601 string (e.g., "2024-12-25T17:00:00"). Return null if none.
         5. **Spam Score**: 0.0 (Clean) to 1.0 (Definite Spam).
         6. **Reasoning**: Brief explanation (max 15 words) for the priority rating.
-        7. **Tasks**: Extract actionable tasks as a list of strings.
+        7. **Tasks**: Extract HIGHLY SPECIFIC, ACTIONABLE tasks (e.g. "Review Q3 Report", "Reply to Sarah"). Return [] if no clear action.
         8. **Suggested Reply**: Draft a short professional reply if needed (null if newsletter/spam).
         
         JSON Structure:
@@ -58,20 +56,31 @@ export class AiService {
             "deadline": "ISO String or null",
             "spamScore": 0.0,
             "reasoning": "String",
-            "tasks": ["Task 1", "Task 2"],
+            "tasks": ["Review proposal document", "Schedule meeting with team"],
             "suggestedReply": "String"
         }
         `;
 
         try {
             const rawResponse = await llmService.generateCompletion(prompt);
-            console.log('Raw LLM Response:', rawResponse);
 
             const sanitized = this.sanitizeJson(rawResponse);
             const analysis = JSON.parse(sanitized) as EmailAnalysis;
 
             // Validate critical fields
             if (!['HIGH', 'MEDIUM', 'LOW'].includes(analysis.priority)) analysis.priority = 'MEDIUM';
+
+            // Clean tasks
+            if (Array.isArray(analysis.tasks)) {
+                analysis.tasks = analysis.tasks.filter(t => t && t.trim().length > 3 && !t.includes("Task 1"));
+            } else {
+                analysis.tasks = [];
+            }
+
+            // Clean suggested reply
+            if (analysis.suggestedReply === 'null' || analysis.suggestedReply === 'N/A' || (analysis.suggestedReply && analysis.suggestedReply.length < 5)) {
+                analysis.suggestedReply = undefined;
+            }
 
             return analysis;
 

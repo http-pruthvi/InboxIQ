@@ -4,6 +4,7 @@ export interface Email {
     from: string;
     subject: string;
     body: string;
+    snippet?: string;
     date: string;
     isRead: boolean;
     priority?: 'HIGH' | 'MEDIUM' | 'LOW' | 'NORMAL';
@@ -15,6 +16,12 @@ export interface Email {
     deadline?: string;
     spamScore?: number;
     reasoning?: string;
+    attachments?: {
+        filename: string;
+        path: string;
+        contentType: string;
+        size: number;
+    }[];
 }
 
 export interface Task {

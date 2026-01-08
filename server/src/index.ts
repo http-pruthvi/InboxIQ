@@ -1,6 +1,5 @@
-import dotenv from 'dotenv';
-dotenv.config(); // Load env vars immediately
 
+import 'dotenv/config'; // Load env vars before any other imports
 import express from 'express';
 import cors from 'cors';
 import './firebase'; // Initialize Firebase
@@ -10,9 +9,60 @@ import { taskService } from './services/taskService';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Restart trigger for .env update
+// Trigger restart for new route
+
+
+import { authService } from './services/authService';
+import { chatController } from './controllers/chatController';
+import { aiController } from './controllers/aiController';
 
 app.use(cors());
 app.use(express.json());
+// Serve uploaded attachments/images
+app.use('/uploads', express.static('public/uploads'));
+// Serve uploaded attachments/images
+app.use('/uploads', express.static('public/uploads'));
+
+// --- ROUTES ---
+app.post('/api/chat', chatController.handleChat);
+app.post('/api/ai/rewrite', aiController.handleRewrite);
+console.log('Routes registered: /api/chat, /api/ai/rewrite');
+
+app.get('/auth/google', (req, res) => {
+    const url = authService.generateAuthUrl();
+    res.redirect(url);
+});
+
+app.get('/auth/google/callback', async (req, res) => {
+    try {
+        const { code } = req.query;
+        if (code) {
+            await authService.getTokens(code as string);
+            // Redirect back to frontend
+            res.redirect('http://localhost:5173');
+        } else {
+            throw new Error('No code received');
+        }
+    } catch (error) {
+        console.error('Auth error:', error);
+        res.redirect('http://localhost:5173?error=auth_failed');
+    }
+});
+
+app.get('/api/user', (req, res) => {
+    const isAuthenticated = authService.isAuthenticated();
+    res.json({
+        isAuthenticated,
+        user: isAuthenticated ? { email: 'User' } : null
+    });
+});
+
+app.get('/api/auth/logout', (req, res) => {
+    authService.logout();
+    res.json({ status: 'success', message: 'Logged out' });
+});
+
 
 app.get('/', (req, res) => {
     res.send('AI Email Assistant Server Running');
@@ -20,7 +70,6 @@ app.get('/', (req, res) => {
 
 // Mock API route for testing connection
 app.get('/api/health', (req, res) => {
-    console.log('Health check called');
     res.json({ status: 'ok', message: 'Backend is connected' });
 });
 
@@ -93,9 +142,11 @@ app.patch('/api/tasks/:id', async (req, res) => {
     }
 });
 
-const server = app.listen(PORT, () => {
+
+const server = app.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
+
 
 // Keep process alive just in case
 // Run automation every hour (3600000 ms)
