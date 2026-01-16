@@ -127,6 +127,17 @@ Or run manually:
 -   **Server**: `npm run dev` (in `server/`)
 -   **Client**: `npm run dev` (in `client/`)
 
+## ⚠️ Important Note on Architecture
+
+**Is this a Multi-User App?**
+As currently designed for the hackathon/demo:
+-   **Single-User Focus**: This application is architected as a **local, personal assistant**. It runs on your machine and connects to *your* personal Gmail and *your* own Firebase instance.
+-   **Setup Required**: Anyone who wants to run this code on their own machine will need to follow the **Setup Guide** above (creating their own Firebase details and Google Cloud credentials).
+-   **Production (SaaS) Scenario**: To turn this into a product where users just "Log in" without setup, you would need to:
+    1.  Host the Node.js server and Firebase remotely.
+    2.  Verify the app with Google to allow public users to sign in.
+    3.  Update the backend to manage multi-tenant user sessions instead of a single local `tokens.json`.
+
 ## Troubleshooting
 
 -   **Ollama Connection Error**: Ensure Ollama is running (`ollama serve`) and accessible at `http://localhost:11434`.
