@@ -113,7 +113,7 @@ GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
 
 # AI Config (Optional, defaults shown)
 AI_PROVIDER_URL=http://localhost:11434/api/generate
-AI_MODEL=llama3
+AI_MODEL=llama3.1:8b
 ```
 
 ### 6. Running the App
